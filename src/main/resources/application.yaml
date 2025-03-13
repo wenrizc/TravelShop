@@ -1,0 +1,57 @@
+server:
+  port: 8081
+spring:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+  application:
+    name: hmdp
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/hmdp?useSSL=false&serverTimezone=UTC
+    username: root
+    password: "123456"
+  redis:
+    host: localhost
+    port: 6379
+    password: "123456"
+    lettuce:
+      pool:
+        max-active: 10
+        max-idle: 10
+        min-idle: 1
+        time-between-eviction-runs: 10s
+  jackson:
+    default-property-inclusion: non_null # JSON处理时忽略非空字段
+  cloud:
+    sentinel:
+      transport:
+        dashboard: localhost:8080
+        port: 8719
+      eager: true
+sentinel:
+  flow:
+    concurrency-threshold: 2200
+  system:
+    cpu-usage: 0.95
+
+csp:
+  sentinel:
+    log:
+      dir: logs/sentinel
+      use-pid: true
+mybatis-plus:
+  type-aliases-package: com.hmdp.entity # 别名扫描包
+logging:
+  level:
+    com.hmdp: debug
+# Canal配置
+canal:
+  host: localhost
+  port: 11111
+  destination: hmdp
+  username: 
+  password:
