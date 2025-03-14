@@ -6,40 +6,36 @@ import com.hmdp.entity.VoucherOrder;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * ivoucher订单服务
- * <p>
- * 服务类
- * </p>
- *
- * @author 虎哥
- * @date 2022/10/09
- * @since 2021-12-22
- */
-public interface IVoucherOrderService extends IService<VoucherOrder> {
+import java.util.List;
 
+public interface IVoucherOrderService extends IService<VoucherOrder> {
     /**
-     * 秒杀优惠券
-     *
-     * @param voucherId 券id
-     * @return {@link Result}
+     * 秒杀优惠券 - 创建订单
+     * @param voucherId 优惠券id
+     * @return 结果
      */
     Result seckillVoucher(Long voucherId);
 
     /**
-     * 得到结果
-     *
-     * @param voucherId 券id
-     * @return {@link Result}
+     * 根据订单项ID查询优惠券订单
+     * @param orderItemId 订单项ID
+     * @return 优惠券订单
      */
-    Result getResult(Long voucherId);
+    VoucherOrder getByOrderItemId(Long orderItemId);
 
     /**
-     * 创建优惠券订单
-     *
-     * @param voucherOrder 券订单
+     * 使用优惠券
+     * @param id 优惠券订单ID
+     * @return 是否成功
      */
-    @NotNull
-    @Transactional(rollbackFor = Exception.class)
-    void createVoucherOrder(VoucherOrder voucherOrder);
+    boolean useVoucher(Long id);
+
+    /**
+     * 退款优惠券
+     * @param id 优惠券订单ID
+     * @return 是否成功
+     */
+    boolean refundVoucher(Long id);
+
+    List<VoucherOrder> getUserVouchers(Long id);
 }

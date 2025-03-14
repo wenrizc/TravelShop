@@ -11,21 +11,40 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 购物车操作日志实体类
+ * <p>
+ * 门票使用记录
+ * </p>
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("tb_shopping_cart_log")
-public class ShoppingCartLog implements Serializable {
+@TableName("tb_ticket_usage")
+public class TicketUsage implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * 日志ID
-     */
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
+
+    /**
+     * 订单ID
+     */
+    private Long orderId;
+
+    /**
+     * 订单项ID
+     */
+    private Long orderItemId;
+
+    /**
+     * 门票ID
+     */
+    private Long ticketId;
+
+    /**
+     * 门票规格ID
+     */
+    private Long ticketSkuId;
 
     /**
      * 用户ID
@@ -33,27 +52,32 @@ public class ShoppingCartLog implements Serializable {
     private Long userId;
 
     /**
-     * 购物车ID
+     * 核销码
      */
-    private Long cartId;
+    private String code;
 
     /**
-     * 操作类型：1-添加 2-修改数量 3-删除 4-清空 5-选中/取消选中
+     * 状态
      */
-    private Integer operationType;
+    private Integer status;
 
     /**
-     * 商品ID
+     * 使用时间
      */
-    private Long productId;
+    private LocalDateTime useTime;
 
     /**
-     * 操作数量
+     * 过期时间
      */
-    private Integer quantity;
+    private LocalDateTime expireTime;
 
     /**
      * 创建时间
      */
-    private LocalDateTime createdTime;
+    private LocalDateTime createTime;
+
+    /**
+     * 更新时间
+     */
+    private LocalDateTime updateTime;
 }

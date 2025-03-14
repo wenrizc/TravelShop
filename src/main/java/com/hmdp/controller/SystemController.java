@@ -21,8 +21,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.alibaba.csp.sentinel.node.metric.MetricTimerListener;
-
+/**
+ * 系统控制器
+ */
 @RestController
 @RequestMapping("/system")
 public class SystemController {

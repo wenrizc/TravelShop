@@ -84,4 +84,9 @@ public class OrderItem implements Serializable {
      * 更新时间
      */
     private LocalDateTime updateTime;
+
+    /**
+     * 备注
+     */
+    private String remark;
 }

@@ -1,6 +1,11 @@
 package com.hmdp.service;
 
+import com.hmdp.entity.Product;
+import com.hmdp.entity.ProductSku;
+
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 
 public interface IProductService {
 
@@ -8,60 +13,48 @@ public interface IProductService {
      * 获取商品信息
      * @param productId 商品ID
      * @param skuId SKU ID
-     * @return 商品信息
+     * @return 商品和SKU信息
      */
-    ProductInfo getProductInfo(Long productId, Long skuId);
+    Map<String, Object> getProductInfo(Long productId, Long skuId);
 
     /**
      * 锁定商品库存
      * @param productId 商品ID
      * @param skuId SKU ID
-     * @param count 数量
+     * @param quantity 数量
      * @return 是否成功
      */
-    boolean lockStock(Long productId, Long skuId, Integer count);
+    boolean lockStock(Long productId, Long skuId, Integer quantity);
 
     /**
      * 释放商品库存
      * @param productId 商品ID
      * @param skuId SKU ID
-     * @param count 数量
+     * @param quantity 数量
      * @return 是否成功
      */
-    boolean unlockStock(Long productId, Long skuId, Integer count);
+    boolean unlockStock(Long productId, Long skuId, Integer quantity);
 
     /**
-     * 商品信息DTO
+     * 扣减库存
+     * @param productId 商品ID
+     * @param skuId SKU ID
+     * @param quantity 数量
+     * @return 是否成功
      */
-    class ProductInfo {
-        private Long productId;
-        private Long skuId;
-        private String name;
-        private String imageUrl;
-        private String skuName;
-        private BigDecimal price;
-        private Integer stock;
-        private Integer productType;
-        private boolean onSale = true;
+    boolean deductStock(Long productId, Long skuId, Integer quantity);
 
-        // Getters and setters
-        public Long getProductId() { return productId; }
-        public void setProductId(Long productId) { this.productId = productId; }
-        public Long getSkuId() { return skuId; }
-        public void setSkuId(Long skuId) { this.skuId = skuId; }
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        public String getImageUrl() { return imageUrl; }
-        public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
-        public String getSkuName() { return skuName; }
-        public void setSkuName(String skuName) { this.skuName = skuName; }
-        public BigDecimal getPrice() { return price; }
-        public void setPrice(BigDecimal price) { this.price = price; }
-        public Integer getStock() { return stock; }
-        public void setStock(Integer stock) { this.stock = stock; }
-        public Integer getProductType() { return productType; }
-        public void setProductType(Integer productType) { this.productType = productType; }
-        public boolean isOnSale() { return onSale; }
-        public void setOnSale(boolean onSale) { this.onSale = onSale; }
-    }
+    /**
+     * 获取商品所有规格
+     * @param productId 商品ID
+     * @return 规格列表
+     */
+    List<ProductSku> getProductSkus(Long productId);
+
+    /**
+     * 获取商品最低价格
+     * @param productId 商品ID
+     * @return 最低价格
+     */
+    BigDecimal getProductMinPrice(Long productId);
 }

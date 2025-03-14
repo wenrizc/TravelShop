@@ -1,5 +1,6 @@
 package com.hmdp.dto;
 
+import com.hmdp.enums.ProductType;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -76,6 +77,12 @@ public class OrderCreateDTO implements Serializable {
          * 商品单价（用于前端展示，实际价格以后端为准）
          */
         private BigDecimal price;
+
+        /**
+         * 商品类型
+         */
+        private Integer productType;
+
     }
 
     /**

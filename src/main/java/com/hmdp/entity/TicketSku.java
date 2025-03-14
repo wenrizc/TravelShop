@@ -8,37 +8,68 @@ import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-
+/**
+ * <p>
+ * 门票规格
+ * </p>
+ */
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("tb_follow")
-public class Follow implements Serializable {
+@TableName("tb_ticket_sku")
+public class TicketSku implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * 主键
-     */
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
     /**
-     * 用户id
+     * 门票ID
      */
-    private Long userId;
+    private Long ticketId;
 
     /**
-     * 关联的用户id
+     * 规格名称
      */
-    private Long followUserId;
+    private String name;
+
+    /**
+     * 票价
+     */
+    private BigDecimal price;
+
+    /**
+     * 库存
+     */
+    private Integer stock;
+
+    /**
+     * 锁定库存
+     */
+    private Integer stockLocked;
+
+    /**
+     * 销量
+     */
+    private Integer saleCount;
+
+    /**
+     * 状态
+     */
+    private Integer status;
 
     /**
      * 创建时间
      */
     private LocalDateTime createTime;
 
-
+    /**
+     * 更新时间
+     */
+    private LocalDateTime updateTime;
 }
+

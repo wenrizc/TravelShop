@@ -17,12 +17,6 @@ import javax.servlet.http.HttpSession;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-/**
- * 登录拦截器
- *
- * @author CHEN
- * @date 2022/10/07
- */
 public class LoginInterceptor implements HandlerInterceptor {
 
     @Override

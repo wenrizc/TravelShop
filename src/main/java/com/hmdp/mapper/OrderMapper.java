@@ -104,4 +104,35 @@ public interface OrderMapper extends BaseMapper<Order> {
             "ORDER BY create_time DESC" +
             "</script>")
     Page<Order> queryOrders(OrderQueryDTO queryDTO);
+
+
+    /**
+     * 根据条件分页查询订单
+     */
+    @Select("<script>" +
+            "SELECT * FROM tb_order " +
+            "<where>" +
+            "   <if test='dto.userId != null'> AND user_id = #{dto.userId} </if>" +
+            "   <if test='dto.orderNo != null and dto.orderNo != \"\"'> AND order_no = #{dto.orderNo} </if>" +
+            "   <if test='dto.statusList != null and dto.statusList.size() > 0'>" +
+            "       AND status IN " +
+            "       <foreach collection='dto.statusList' item='status' open='(' separator=',' close=')'>" +
+            "           #{status}" +
+            "       </foreach>" +
+            "   </if>" +
+            "   <if test='dto.startTime != null'> AND create_time >= #{dto.startTime} </if>" +
+            "   <if test='dto.endTime != null'> AND create_time &lt;= #{dto.endTime} </if>" +
+            "   <if test='dto.minAmount != null'> AND pay_amount >= #{dto.minAmount} </if>" +
+            "   <if test='dto.maxAmount != null'> AND pay_amount &lt;= #{dto.maxAmount} </if>" +
+            "   <if test='dto.includeDeleted == null or !dto.includeDeleted'> AND is_deleted = 0 </if>" +
+            "</where>" +
+            "<if test='dto.sortField != null and dto.sortField != \"\" and dto.sortDirection != null and dto.sortDirection != \"\"'>" +
+            "   ORDER BY ${dto.sortField} ${dto.sortDirection}" +
+            "</if>" +
+            "<if test='dto.sortField == null or dto.sortField == \"\" or dto.sortDirection == null or dto.sortDirection == \"\"'>" +
+            "   ORDER BY create_time DESC" +
+            "</if>" +
+            "</script>")
+    List<Order> queryOrdersByCondition(Page<Order> page, @Param("dto") OrderQueryDTO dto);
+
 }

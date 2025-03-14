@@ -1,12 +1,14 @@
 package com.hmdp.service.impl.order;
 
-import com.hmdp.entity.Order;
-import com.hmdp.entity.OrderItem;
+import com.hmdp.entity.*;
 import com.hmdp.enums.OrderStatus;
-import com.hmdp.service.IOrderService;
+import com.hmdp.enums.ProductType;
+import com.hmdp.order;
+import com.hmdp.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -21,13 +23,20 @@ import java.util.function.BiFunction;
 public class ProductTypeRuleHandler {
 
     private final IOrderService orderService;
+    private final ITicketService ticketService;
+    private final ITicketUsageService ticketUsageService;
+    private final IVoucherService voucherService;
+    private final IVoucherOrderService voucherOrderService;
+
 
     /**
      * 各商品类型的退款时限规则（返回允许退款的最长时间，单位天）
      */
     private static final Map<Integer, BiFunction<Order, OrderItem, Integer>> REFUND_TIME_RULES = new HashMap<>();
 
-    static {
+
+    @PostConstruct
+    public void init() {
         // 普通商品，收货后7天内可退
         REFUND_TIME_RULES.put(1, (order, item) -> 7);
 
@@ -45,6 +54,49 @@ public class ProductTypeRuleHandler {
             // 虚拟商品特殊处理，需要查询是否已使用
             // 这里简化处理，统一返回1天
             return 1;
+        });
+
+        // 更新门票退款规则
+        REFUND_TIME_RULES.put(ProductType.TICKET.getCode(), (order, item) -> {
+            // 检查门票是否已使用
+            TicketUsage usage = ticketUsageService.getByOrderItemId(item.getId());
+            if (usage != null) {
+                if (usage.getStatus() == 2) { // 已使用
+                    return 0; // 不可退款
+                } else if (usage.getStatus() == 3) { // 已过期
+                    return 0; // 不可退款
+                }
+            }
+
+            // 获取门票
+            Ticket ticket = ticketService.getById(item.getProductId());
+            if (ticket != null) {
+                // 如果是时间限制门票且有效期不足3天，则退款期限缩短
+                if (ticket.getIsTimeLimited() && ticket.getEffectiveDays() != null) {
+                    if (ticket.getEffectiveDays() <= 3) {
+                        return 1; // 只有1天可退
+                    }
+                }
+            }
+
+            return 7; // 默认7天内可退
+        });
+
+        // 更新优惠券退款规则
+        REFUND_TIME_RULES.put(ProductType.VOUCHER.getCode(), (order, item) -> {
+            // 检查优惠券是否已使用
+            VoucherOrder voucherOrder = voucherOrderService.getByOrderItemId(item.getId());
+            if (voucherOrder != null && voucherOrder.getStatus() == 3) { // 已使用
+                return 0; // 不可退款
+            }
+
+            // 检查是否是秒杀券
+            Voucher voucher = voucherService.getById(item.getProductId());
+            if (voucher != null && voucher.getType() == 2) { // 秒杀券
+                return 3; // 秒杀券3天内可退
+            }
+
+            return 30; // 普通优惠券30天内可退
         });
     }
 

@@ -1,7 +1,6 @@
 package com.hmdp.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -9,85 +8,74 @@ import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
- * 商品规格实体类
+ * <p>
+ * 门票基本信息
+ * </p>
  */
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("tb_product_sku")
-public class ProductSku implements Serializable {
+@TableName("tb_ticket")
+public class Ticket implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * 主键ID
-     */
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
     /**
-     * 商品ID
-     */
-    private Long productId;
-
-    /**
-     * 规格名称
+     * 门票名称
      */
     private String name;
 
     /**
-     * 规格值（JSON格式存储，如：{"颜色":"红色","尺寸":"XL"}）
+     * 所属商铺ID
      */
-    private String specs;
+    private Long shopId;
 
     /**
-     * 规格编码
+     * 门票类型ID
      */
-    private String code;
+    private Integer typeId;
 
     /**
-     * 规格图片
+     * 门票描述
      */
-    private String image;
+    private String description;
 
     /**
-     * 销售价格
+     * 门票图片
      */
-    private BigDecimal price;
+    private String images;
 
     /**
-     * 原价
+     * 预订须知
      */
-    private BigDecimal originalPrice;
+    private String notice;
 
     /**
-     * 库存
+     * 使用地点
      */
-    private Integer stock;
+    private String address;
 
     /**
-     * 锁定库存（已下单未支付的库存）
+     * 是否限时
      */
-    private Integer stockLocked;
+    private Boolean isTimeLimited;
 
     /**
-     * 销量
+     * 有效天数
      */
-    private Integer sales;
+    private Integer effectiveDays;
 
     /**
-     * 状态：1-启用，0-禁用
+     * 状态
      */
     private Integer status;
-
-    /**
-     * 排序值
-     */
-    private Integer sort;
 
     /**
      * 创建时间
@@ -98,5 +86,20 @@ public class ProductSku implements Serializable {
      * 更新时间
      */
     private LocalDateTime updateTime;
+
+    /**
+     * 商铺名称
+     */
+    private String shopName;
+
+    /**
+     * 销量
+     */
+    private Integer saleCount;
+
+    /**
+     * 门票规格
+     */
+    private List<TicketSku> skus;
 
 }

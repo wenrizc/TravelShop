@@ -15,6 +15,10 @@ import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 
+
+/**
+ * Sentinel配置
+ */
 @Slf4j
 @Configuration
 public class SentinelConfig {
