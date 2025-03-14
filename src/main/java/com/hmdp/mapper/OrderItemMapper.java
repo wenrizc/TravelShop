@@ -1,4 +1,4 @@
-package com.hmdp.mapper;
+package com.hmdp.service;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.hmdp.entity.OrderItem;
@@ -37,4 +37,6 @@ public interface OrderItemMapper extends BaseMapper<OrderItem> {
      */
     @Select("SELECT SUM(count) FROM tb_order_item WHERE product_type = #{productType}")
     Integer sumCountByProductType(@Param("productType") Integer productType);
+
+
 }
