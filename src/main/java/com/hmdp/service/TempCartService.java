@@ -1,9 +1,8 @@
 package com.hmdp.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.hmdp.entity.TempCart;
 import com.hmdp.dto.Result;
-
+import com.hmdp.entity.TempCart;
 import java.util.List;
 
 /**
@@ -64,14 +63,6 @@ public interface TempCartService extends IService<TempCart> {
     Result clearCart(String sessionId);
 
     /**
-     * 合并临时购物车到用户购物车
-     * @param userId 用户ID
-     * @param sessionId 会话ID
-     * @return 合并结果
-     */
-    Result mergeToUserCart(Long userId, String sessionId);
-
-    /**
      * 临时购物车"立即购买"
      * @param sessionId 会话ID
      * @param productId 商品ID
@@ -89,9 +80,11 @@ public interface TempCartService extends IService<TempCart> {
     int cleanExpiredItems();
 
     /**
-     * 获取临时购物车商品总数
+     * 获取临时购物车商品数量
      * @param sessionId 会话ID
-     * @return 商品总数
+     * @return 商品数量
      */
     int countItems(String sessionId);
+
+    // 移除mergeToUserCart方法，由CartMergeService负责
 }

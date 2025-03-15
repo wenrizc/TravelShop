@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hmdp.dto.OrderCreateDTO;
 import com.hmdp.dto.OrderQueryDTO;
+import com.hmdp.dto.Result;
 import com.hmdp.entity.Order;
 import com.hmdp.entity.OrderItem;
 import com.hmdp.entity.OrderStatusHistory;
@@ -77,5 +78,8 @@ public interface IOrderService extends IService<Order> {
     List<OrderStatusHistory> getHistoryByOrderId(Long orderId);
 
     void save(OrderStatusHistory history);
+
+    public Result seckillVoucher(long voucherId);
+
 
 }

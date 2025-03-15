@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 public class TempCartServiceImpl extends ServiceImpl<TempCartMapper, TempCart> implements TempCartService {
 
     private final TempCartMapper tempCartMapper;
-    private final ShoppingCartService shoppingCartService;
     private final ShoppingCartItemService shoppingCartItemService;
     private final ProductMapper productMapper;
     private final ProductSkuMapper productSkuMapper;
@@ -305,68 +304,6 @@ public class TempCartServiceImpl extends ServiceImpl<TempCartMapper, TempCart> i
         int rows = tempCartMapper.clearBySessionId(sessionId);
         return Result.ok(rows);
     }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public Result mergeToUserCart(Long userId, String sessionId) {
-        if (userId == null || !StringUtils.hasText(sessionId)) {
-            return Result.fail("参数不完整");
-        }
-
-        log.info("合并临时购物车到用户购物车: userId={}, sessionId={}", userId, sessionId);
-
-        // 获取临时购物车项
-        List<TempCart> tempItems = getBySessionId(sessionId);
-        if (CollectionUtils.isEmpty(tempItems)) {
-            log.info("临时购物车为空，无需合并");
-            return Result.ok(0);
-        }
-
-        // 获取或创建用户购物车
-        ShoppingCart userCart = shoppingCartService.getOrCreateCurrentCart();
-        if (userCart == null) {
-            return Result.fail("获取用户购物车失败");
-        }
-
-        // 合并购物车项
-        int mergeCount = 0;
-        for (TempCart tempItem : tempItems) {
-            // 检查用户购物车中是否已存在相同商品
-            ShoppingCartItem existItem = shoppingCartItemService.getByProductInfo(
-                    userCart.getId(), tempItem.getProductId(), tempItem.getProductType(), tempItem.getSkuId());
-
-            if (existItem != null) {
-                // 更新数量
-                int newQuantity = existItem.getQuantity() + tempItem.getQuantity();
-                shoppingCartItemService.updateQuantity(existItem.getId(), newQuantity);
-            } else {
-                // 添加新项
-                ShoppingCartItem newItem = new ShoppingCartItem();
-                newItem.setCartId(userCart.getId());
-                newItem.setProductId(tempItem.getProductId());
-                newItem.setProductName(tempItem.getProductName());
-                newItem.setProductImage(tempItem.getProductImage());
-                newItem.setProductType(tempItem.getProductType());
-                newItem.setSkuId(tempItem.getSkuId());
-                newItem.setSkuName(tempItem.getSkuName());
-                newItem.setPrice(tempItem.getPrice());
-                newItem.setQuantity(tempItem.getQuantity());
-                newItem.setSelected(1); // 默认选中
-                newItem.setCreatedTime(LocalDateTime.now());
-
-                shoppingCartItemService.save(newItem);
-            }
-
-            mergeCount++;
-        }
-
-        // 清空临时购物车
-        clearCart(sessionId);
-
-        return Result.ok(mergeCount);
-    }
-
-
 
     @Override
     public int cleanExpiredItems() {

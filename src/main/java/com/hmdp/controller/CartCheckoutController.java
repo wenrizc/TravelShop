@@ -2,7 +2,6 @@ package com.hmdp.controller;
 
 import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
-import com.hmdp.service.CartPromotionService;
 import com.hmdp.service.ShoppingCartService;
 import com.hmdp.utils.UserHolder;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +20,6 @@ import java.util.List;
 public class CartCheckoutController {
 
     private final ShoppingCartService shoppingCartService;
-    private final CartPromotionService cartPromotionService;
 
     /**
      * 结算购物车
@@ -63,81 +61,4 @@ public class CartCheckoutController {
         return shoppingCartService.getSettlementInfo(user.getId(), cartId, itemIds);
     }
 
-    /**
-     * 应用满减促销
-     * @param cartId 购物车ID
-     * @return 促销结果
-     */
-    @PostMapping("/promotion/full-reduction")
-    public Result applyFullReduction(@RequestParam("cartId") Long cartId) {
-        UserDTO user = UserHolder.getUser();
-        // 验证购物车所有权
-        if (!shoppingCartService.validateCartOwnership(user.getId(), cartId)) {
-            return Result.fail("无权操作此购物车");
-        }
-        return cartPromotionService.applyFullReduction(cartId);
-    }
-
-    /**
-     * 应用满折促销
-     * @param cartId 购物车ID
-     * @return 促销结果
-     */
-    @PostMapping("/promotion/discount")
-    public Result applyDiscount(@RequestParam("cartId") Long cartId) {
-        UserDTO user = UserHolder.getUser();
-        // 验证购物车所有权
-        if (!shoppingCartService.validateCartOwnership(user.getId(), cartId)) {
-            return Result.fail("无权操作此购物车");
-        }
-        return cartPromotionService.applyDiscount(cartId);
-    }
-
-    /**
-     * 应用直减促销
-     * @param cartId 购物车ID
-     * @param itemIds 要应用直减的购物车项ID列表
-     * @return 促销结果
-     */
-    @PostMapping("/promotion/direct-reduction")
-    public Result applyDirectReduction(
-            @RequestParam("cartId") Long cartId,
-            @RequestBody List<Long> itemIds) {
-        UserDTO user = UserHolder.getUser();
-        // 验证购物车所有权
-        if (!shoppingCartService.validateCartOwnership(user.getId(), cartId)) {
-            return Result.fail("无权操作此购物车");
-        }
-        return cartPromotionService.applyDirectReduction(cartId, itemIds);
-    }
-
-    /**
-     * 应用最优促销方案
-     * @param cartId 购物车ID
-     * @return 促销结果
-     */
-    @PostMapping("/promotion/best")
-    public Result applyBestPromotion(@RequestParam("cartId") Long cartId) {
-        UserDTO user = UserHolder.getUser();
-        // 验证购物车所有权
-        if (!shoppingCartService.validateCartOwnership(user.getId(), cartId)) {
-            return Result.fail("无权操作此购物车");
-        }
-        return cartPromotionService.applyBestPromotion(cartId);
-    }
-
-    /**
-     * 清除购物车所有促销
-     * @param cartId 购物车ID
-     * @return 操作结果
-     */
-    @DeleteMapping("/promotion/clear")
-    public Result clearPromotions(@RequestParam("cartId") Long cartId) {
-        UserDTO user = UserHolder.getUser();
-        // 验证购物车所有权
-        if (!shoppingCartService.validateCartOwnership(user.getId(), cartId)) {
-            return Result.fail("无权操作此购物车");
-        }
-        return cartPromotionService.clearPromotions(cartId);
-    }
 }

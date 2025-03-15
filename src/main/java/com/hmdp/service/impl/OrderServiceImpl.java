@@ -4,11 +4,13 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.OrderCreateDTO;
 import com.hmdp.dto.OrderQueryDTO;
+import com.hmdp.dto.Result;
 import com.hmdp.entity.*;
 import com.hmdp.enums.OrderStatus;
 import com.hmdp.enums.ProductType;
 import com.hmdp.mapper.*;
 import com.hmdp.service.*;
+import com.hmdp.utils.UserHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,9 +41,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private final ISeckillVoucherService seckillVoucherService;
     private final IOrderStateService orderStateService;
     private final ITicketSkuService ticketSkuService;
-
-
-
+    private final OrderStatusHistoryMapper orderStatusHistoryMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -120,7 +120,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                     }
 
                     // 验证库存（秒杀券需要验证）
-                    if (voucher.getType() == 2) { // 假设2表示秒杀券
+                    if (voucher.getType() == 2) {
                         SeckillVoucher seckillVoucher = seckillVoucherService.getById(itemDTO.getProductId());
                         if (seckillVoucher == null || seckillVoucher.getStock() < itemDTO.getCount()) {
                             throw new RuntimeException("优惠券库存不足");
@@ -567,11 +567,21 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     }
     @Override
     public void save(OrderStatusHistory history) {
-        log.info("保存订单状态历史: orderStatusHistory={}", history);
-        //TODO
-        // 这里应该使用OrderStatusHistoryMapper保存
-        // 实际实现需要注入OrderStatusHistoryMapper或其Service
-        log.warn("save(OrderStatusHistory)方法需要实现");
+        log.info("保存订单状态历史: {}", history);
+    
+        // 设置默认值
+        if (history.getCreateTime() == null) {
+            history.setCreateTime(LocalDateTime.now());
+        }
+        if (history.getUpdateTime() == null) {
+            history.setUpdateTime(LocalDateTime.now());
+        }
+        if (history.getOperateTime() == null) {
+            history.setOperateTime(LocalDateTime.now());
+        }
+        
+        // 保存历史记录
+        orderStatusHistoryMapper.insert(history);
     }
 
 
@@ -596,4 +606,62 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             default: return "未知状态";
         }
     }
+
+    @Override
+    public Result seckillVoucher(long voucherId) {
+        // 1. 查询优惠券信息
+        Voucher voucher = voucherService.getById(voucherId);
+        if (voucher == null) {
+            return Result.fail("优惠券不存在");
+        }
+
+        // 2. 判断是否是秒杀券
+        if (voucher.getType() != 2) {
+            return Result.fail("不是秒杀券");
+        }
+
+        // 3. 查询秒杀券详情
+        SeckillVoucher seckillVoucher = seckillVoucherService.getById(voucherId);
+        if (seckillVoucher == null) {
+            return Result.fail("秒杀券不存在");
+        }
+
+        // 4. 判断秒杀是否开始或已结束
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(seckillVoucher.getBeginTime())) {
+            return Result.fail("秒杀未开始");
+        }
+        if (now.isAfter(seckillVoucher.getEndTime())) {
+            return Result.fail("秒杀已结束");
+        }
+
+        // 5. 判断库存是否充足
+        if (seckillVoucher.getStock() < 1) {
+            return Result.fail("库存不足");
+        }
+
+        // 6. 扣减库存（注意：实际场景应考虑并发安全，可使用乐观锁或分布式锁）
+        boolean success = seckillVoucherService.update()
+                .setSql("stock = stock - 1")
+                .eq("voucher_id", voucherId)
+                .gt("stock", 0)
+                .update();
+        if (!success) {
+            return Result.fail("库存不足");
+        }
+
+        // 7. 创建优惠券订单
+        VoucherOrder voucherOrder = new VoucherOrder();
+        voucherOrder.setUserId(UserHolder.getUser().getId());
+        voucherOrder.setVoucherId(voucherId);
+        voucherOrder.setPayType(1); // 默认支付类型
+        voucherOrder.setStatus(1);  // 未使用状态
+        voucherOrder.setCreateTime(now);
+        voucherOrder.setUpdateTime(now);
+        voucherOrderService.save(voucherOrder);
+
+        // 8. 返回订单ID
+        return Result.ok(voucherOrder.getId());
+    }
+
 }

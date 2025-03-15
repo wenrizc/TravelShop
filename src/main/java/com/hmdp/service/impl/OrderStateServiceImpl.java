@@ -7,7 +7,6 @@ import com.hmdp.entity.OrderStatusHistory;
 import com.hmdp.enums.OperatorType;
 import com.hmdp.enums.OrderStatus;
 import com.hmdp.mapper.OrderStatusHistoryMapper;
-import com.hmdp.service.IOrderService;
 import com.hmdp.service.IOrderStateService;
 import com.hmdp.service.impl.order.OrderStateMachine;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +20,6 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class OrderStateServiceImpl extends ServiceImpl<OrderStatusHistoryMapper, OrderStatusHistory> implements IOrderStateService {
-    private final IOrderService orderService;
     private final OrderStateMachine orderStateMachine;
 
     @Override
@@ -67,8 +65,6 @@ public class OrderStateServiceImpl extends ServiceImpl<OrderStatusHistoryMapper,
         Order updateOrder = new Order();
         updateOrder.setId(orderId);
         updateOrder.setStatus(OrderStatus.DELIVERED.getCode());
-        orderService.updateById(updateOrder);
-
         // 然后变更状态
         OrderStateChangeDTO changeDTO = new OrderStateChangeDTO();
         changeDTO.setOrderId(orderId);

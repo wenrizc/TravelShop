@@ -68,13 +68,5 @@ public interface CartPromotionMapper extends BaseMapper<CartPromotion> {
     @Select("SELECT COUNT(*) FROM tb_cart_promotion WHERE cart_id = #{cartId} AND promotion_id = #{promotionId}")
     int hasPromotion(@Param("cartId") Long cartId, @Param("promotionId") Long promotionId);
 
-    /**
- * 清除特定类型的促销
- * @param cartId 购物车ID
- * @param promotionType 促销类型
- * @return 影响行数
- */
-@Delete("DELETE FROM tb_cart_promotion WHERE cart_id = #{cartId} AND promotion_type = #{promotionType}")
-int clearPromotionsOfType(@Param("cartId") Long cartId, @Param("promotionType") Integer promotionType);
 
 }

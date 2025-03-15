@@ -1,11 +1,13 @@
 package com.hmdp.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hmdp.dto.OrderCreateDTO;
 import com.hmdp.dto.Result;
 import com.hmdp.dto.ShoppingCartDTO;
 import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.*;
 import com.hmdp.enums.CartStatus;
+import com.hmdp.mapper.CartPromotionMapper;
 import com.hmdp.mapper.ShoppingCartMapper;
 import com.hmdp.service.*;
 import com.hmdp.utils.UserHolder;
@@ -14,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -21,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 购物车服务实现类
@@ -32,9 +36,10 @@ public class ShoppingCartServiceImpl extends ServiceImpl<ShoppingCartMapper, Sho
 
     private final ShoppingCartMapper shoppingCartMapper;
     private final ShoppingCartItemService shoppingCartItemService;
-    private final TempCartService tempCartService;
-    private final CartPromotionService cartPromotionService;
     private final IProductService productService;
+    private final IOrderService orderService;
+    private final CartPromotionMapper cartPromotionMapper;
+    private final TempCartService tempCartService;
 
     @Override
     public ShoppingCart getUserCart(Long userId) {
@@ -423,32 +428,115 @@ public class ShoppingCartServiceImpl extends ServiceImpl<ShoppingCartMapper, Sho
             return Result.fail("存在无效商品，请重新选择");
         }
 
-        // TODO: 创建订单
-        // 这里应该调用订单服务创建订单
-        // 这部分逻辑需要根据具体的订单服务实现来完成
 
+        OrderCreateDTO createDTO = OrderCreateDTO.builder()
+                .userId(userId)
+                .addressId(cartId) // 注意：这里应该使用实际的收货地址ID，而不是购物车ID
+                .payType(1)  // 默认支付方式，实际项目中应该由前端传入
+                .source(1)   // 默认来源
+                .remark("购物车结算");
+
+        // 构建订单商品列表
+        List<OrderCreateDTO.OrderItemDTO> orderItems = new ArrayList<>();
+        for (ShoppingCartItem item : items) {
+            OrderCreateDTO.OrderItemDTO orderItem = new OrderCreateDTO.OrderItemDTO();
+            orderItem.setProductId(item.getProductId());
+            orderItem.setSkuId(item.getSkuId());
+            orderItem.setCount(item.getQuantity());
+            orderItem.setPrice(item.getPrice());
+            orderItem.setProductType(item.getProductType());
+            orderItems.add(orderItem);
+        }
+        createDTO.setOrderItems(orderItems);
+
+        // 创建订单
+        Long orderId = orderService.createOrder(createDTO);
+
+        if (orderId == null) {
+            return Result.fail("创建订单失败");
+        }
+
+// 清空购物车中已结算的商品
+        if (CollectionUtils.isEmpty(itemIds)) {
+            // 结算全部选中商品，清除已选中的项
+            List<Long> selectedItemIds = items.stream()
+                    .map(ShoppingCartItem::getId)
+                    .collect(Collectors.toList());
+            shoppingCartItemService.removeItems(selectedItemIds);
+        } else {
+            // 结算指定商品，清除指定项
+            shoppingCartItemService.removeItems(itemIds);
+        }
         // 标记购物车为已下单状态
         cart.setStatus(CartStatus.ORDERED.getCode());
         cart.setUpdatedTime(LocalDateTime.now());
         updateById(cart);
 
         // 返回订单ID
-        Long orderId = null; // 实际应该是创建的订单ID
         return Result.ok(orderId);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result mergeCart(Long userId, String sessionId) {
-        log.info("合并购物车: userId={}, sessionId={}", userId, sessionId);
-        
-        // 参数校验
-        if (userId == null || sessionId == null || sessionId.trim().isEmpty()) {
+        if (userId == null || !StringUtils.hasText(sessionId)) {
             return Result.fail("参数不完整");
         }
 
-        return tempCartService.mergeToUserCart(userId, sessionId);
+        log.info("合并临时购物车到用户购物车: userId={}, sessionId={}", userId, sessionId);
+
+        // 获取临时购物车项
+        List<TempCart> tempItems = tempCartService.getBySessionId(sessionId);
+        if (CollectionUtils.isEmpty(tempItems)) {
+            log.info("临时购物车为空，无需合并");
+            return Result.ok(0);
+        }
+
+        // 获取或创建用户购物车
+        ShoppingCart userCart = this.getOrCreateCurrentCart();
+        if (userCart == null) {
+            return Result.fail("获取用户购物车失败");
+        }
+
+        // 合并购物车项
+        int mergeCount = 0;
+        for (TempCart tempItem : tempItems) {
+            // 检查用户购物车中是否已存在相同商品
+            ShoppingCartItem existItem = shoppingCartItemService.getByProductInfo(
+                    userCart.getId(), tempItem.getProductId(), tempItem.getProductType(), tempItem.getSkuId());
+
+            if (existItem != null) {
+                // 更新数量
+                int newQuantity = existItem.getQuantity() + tempItem.getQuantity();
+                shoppingCartItemService.updateQuantity(existItem.getId(), newQuantity);
+            } else {
+                // 添加新项
+                ShoppingCartItem newItem = new ShoppingCartItem();
+                newItem.setCartId(userCart.getId());
+                newItem.setProductId(tempItem.getProductId());
+                newItem.setProductName(tempItem.getProductName());
+                newItem.setProductImage(tempItem.getProductImage());
+                newItem.setProductType(tempItem.getProductType());
+                newItem.setSkuId(tempItem.getSkuId());
+                newItem.setSkuName(tempItem.getSkuName());
+                newItem.setPrice(tempItem.getPrice());
+                newItem.setQuantity(tempItem.getQuantity());
+                newItem.setSelected(1); // 默认选中
+                newItem.setCreatedTime(LocalDateTime.now());
+                newItem.setUpdatedTime(LocalDateTime.now());
+
+                shoppingCartItemService.save(newItem);
+            }
+
+            mergeCount++;
+        }
+
+        // 清空临时购物车
+        tempCartService.clearCart(sessionId);
+
+        return Result.ok(mergeCount);
     }
+
 
     @Override
     public Result getCartByShop(Long userId) {
@@ -604,7 +692,7 @@ public class ShoppingCartServiceImpl extends ServiceImpl<ShoppingCartMapper, Sho
         }
 
         // 获取促销信息和优惠金额
-        BigDecimal discountAmount = cartPromotionService.calculateTotalDiscount(cartId);
+        BigDecimal discountAmount = calculateTotalDiscount(cartId);
 
         // 构建结算信息
         ShoppingCartDTO settlementInfo = new ShoppingCartDTO();
@@ -624,5 +712,21 @@ public class ShoppingCartServiceImpl extends ServiceImpl<ShoppingCartMapper, Sho
 
         ShoppingCart cart = getById(cartId);
         return cart != null && userId.equals(cart.getUserId());
+    }
+
+    private BigDecimal calculateTotalDiscount(Long cartId) {
+        log.info("计算购物车折扣总额: cartId={}", cartId);
+        if (cartId == null) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            // 直接使用CartPromotionMapper计算总折扣金额
+            BigDecimal totalDiscount = cartPromotionMapper.calculateTotalDiscount(cartId);
+            log.info("购物车折扣总额: cartId={}, discount={}", cartId, totalDiscount);
+            return totalDiscount != null ? totalDiscount : BigDecimal.ZERO;
+        } catch (Exception e) {
+            log.error("计算购物车折扣出错: cartId={}", cartId, e);
+            return BigDecimal.ZERO;
+        }
     }
 }

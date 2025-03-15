@@ -14,6 +14,4 @@ import com.hmdp.entity.SeckillVoucher;
  */
 public interface ISeckillVoucherService extends IService<SeckillVoucher> {
 
-    // 将秒杀功能改造成先生成订单，再支付的模式
-    Result seckillVoucher(Long voucherId);
 }

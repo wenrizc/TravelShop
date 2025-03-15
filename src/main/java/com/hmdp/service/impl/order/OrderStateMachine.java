@@ -5,7 +5,7 @@ import com.hmdp.entity.Order;
 import com.hmdp.entity.OrderStatusHistory;
 import com.hmdp.enums.OrderStatus;
 import com.hmdp.exception.OrderStateException;
-import com.hmdp.service.IOrderService;
+import com.hmdp.mapper.OrderMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -19,8 +19,8 @@ import java.time.LocalDateTime;
 public class OrderStateMachine {
 
 
-    private final IOrderService orderService;
     private final OrderNotifier orderNotifier;
+    private OrderMapper orderMapper;
 
     /**
      * 执行状态转换
@@ -28,7 +28,7 @@ public class OrderStateMachine {
     @Transactional(rollbackFor = Exception.class)
     public boolean changeState(OrderStateChangeDTO changeDTO) {
         // 1. 获取订单
-        Order order = orderService.getById(changeDTO.getOrderId());
+        Order order = orderMapper.selectById(changeDTO.getOrderId());
         if (order == null) {
             throw new OrderStateException("订单不存在");
         }
@@ -46,29 +46,6 @@ public class OrderStateMachine {
         // 4. 执行额外的业务规则验证
         validateBusinessRules(currentStatus, targetStatus, order, changeDTO);
 
-        // 5. 更新订单状态
-        order.setStatus(targetStatus.getCode());
-        updateOrderTimesByStatus(order, targetStatus);
-        order.setUpdateTime(LocalDateTime.now());
-        boolean updated = orderService.updateById(order);
-
-        if (!updated) {
-            throw new OrderStateException("更新订单状态失败");
-        }
-
-        // 6. 记录状态变更历史
-        OrderStatusHistory history = new OrderStatusHistory();
-        history.setOrderId(order.getId());
-        history.setPreviousStatus(currentStatus.getCode());
-        history.setCurrentStatus(targetStatus.getCode());
-        history.setOperator(changeDTO.getOperator());
-        history.setOperatorType(changeDTO.getOperatorType().getCode());
-        history.setReason(changeDTO.getReason());
-        history.setRemark(changeDTO.getRemark());
-        history.setCreateTime(LocalDateTime.now());
-        orderService.save(history);
-
-        // 7. 发送状态变更通知
         orderNotifier.notifyStatusChange(order, currentStatus, targetStatus, changeDTO);
 
         return true;
