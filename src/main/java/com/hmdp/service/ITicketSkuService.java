@@ -51,24 +51,4 @@ public interface ITicketSkuService extends IService<TicketSku> {
      */
     boolean checkStock(Long skuId, Integer count);
 
-    /**
-     * 获取门票的默认规格
-     * @param ticketId 门票ID
-     * @return 默认规格
-     */
-    TicketSku getDefaultSku(Long ticketId);
-
-    /**
-     * 创建门票规格
-     * @param ticketSku 规格信息
-     * @return 是否成功
-     */
-    boolean createTicketSku(TicketSku ticketSku);
-
-    /**
-     * 更新门票规格
-     * @param ticketSku 规格信息
-     * @return 是否成功
-     */
-    boolean updateTicketSku(TicketSku ticketSku);
 }

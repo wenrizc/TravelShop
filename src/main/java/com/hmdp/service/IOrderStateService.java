@@ -24,21 +24,11 @@ public interface IOrderStateService extends IService<OrderStatusHistory> {
     boolean cancelOrder(Long orderId, String reason, String operatorId);
 
     /**
-     * 订单发货
+     * 申请退款
      * @param orderId 订单ID
-     * @param operatorId 操作人ID
-     * @param logisticsCode 物流单号
+     * @param id 退款ID
+     * @param reason 退款原因
      * @return 是否成功
      */
-    boolean deliverOrder(Long orderId, String operatorId, String logisticsCode);
-
-    /**
-     * 确认收货
-     * @param orderId 订单ID
-     * @param userId 用户ID
-     * @return 是否成功
-     */
-    boolean confirmReceive(Long orderId, Long userId);
-
     boolean applyRefund(Long orderId, Long id, String reason);
 }

@@ -14,7 +14,6 @@ import com.hmdp.entity.User;
 import com.hmdp.mapper.UserMapper;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.RedisConstants;
-import com.hmdp.utils.RedisData;
 import com.hmdp.utils.RegexUtils;
 import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
@@ -42,9 +41,6 @@ import static com.hmdp.utils.SystemConstants.*;
  * <p>
  * 服务实现类
  * </p>
- *
- * @author 虎哥
- * @since 2021-12-22
  */
 @Service
 @Slf4j
@@ -61,8 +57,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         }
         //手机号符合,生成验证码
         String code = RandomUtil.randomNumbers(6);
-        /*//保存验证码到session
-        session.setAttribute("code", code);*/
         //保存验证码到redis
         stringRedisTemplate.opsForValue().set(LOGIN_CODE_KEY + phone, code, LOGIN_CODE_TTL, TimeUnit.MINUTES);
         //发送验证码
@@ -79,8 +73,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             //手机号不符合
             return Result.fail("手机号格式错误");
         }
-        //从redis中获取验证码 校验验证码
-        /*  Object cacheCode = session.getAttribute("code");*/
+
         String cacheCode = stringRedisTemplate.opsForValue().get(LOGIN_CODE_KEY + phone);
         String code = loginForm.getCode();
         if (cacheCode == null || !cacheCode.equals(code)) {
@@ -96,9 +89,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             //不存在 创建新用户
             user = createUserWithPhone(phone);
         }
-        /*//保存用户信息到session
-        session.setAttribute("user", BeanUtil.copyProperties(user, UserDTO.class));*/
-        //生成token
         String token = UUID.randomUUID().toString(true);
         //userDTO转map
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);

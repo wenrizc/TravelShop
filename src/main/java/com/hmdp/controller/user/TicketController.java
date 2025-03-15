@@ -1,16 +1,17 @@
-package com.hmdp.controller;
+package com.hmdp.controller.user;
 
 import com.hmdp.dto.Result;
+import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.Ticket;
 import com.hmdp.entity.TicketSku;
 import com.hmdp.entity.TicketUsage;
 import com.hmdp.mapper.TicketSkuMapper;
 import com.hmdp.service.ITicketService;
 import com.hmdp.service.ITicketUsageService;
+import com.hmdp.utils.UserHolder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -41,7 +42,9 @@ public class TicketController {
 
         return Result.ok(ticket);
     }
-
+    /**
+     * 获取门票详情
+     */
     @PostMapping("/verify")
     public Result verifyTicket(@RequestParam("code") String code, @RequestParam(value = "shopId", required = false) Long shopId) {
         // 如果提供了商铺ID，使用verifyTicket方法（包含商铺验证）
@@ -69,13 +72,23 @@ public class TicketController {
 
         return success ? Result.ok("核销成功") : Result.fail("核销失败");
     }
-    private String getStatusMessage(Integer status) {
-        switch (status) {
-            case 1: return "门票未使用";
-            case 2: return "门票已使用";
-            case 3: return "门票已过期";
-            case 4: return "门票已退款";
-            default: return "门票状态异常";
-        }
+    /**
+     * 门票核销
+     */
+    @PostMapping("/ticket/use")
+    public Result useTicket(@RequestParam("code") String code) {
+        boolean success = ticketUsageService.useTicket(code);
+        return success ? Result.ok() : Result.fail("门票核销失败");
     }
+
+    /**
+     * 查询我的门票列表
+     */
+    @GetMapping("/tickets/list")
+    public Result myTickets() {
+        UserDTO user = UserHolder.getUser();
+        List<TicketUsage> tickets = ticketUsageService.getUserTickets(user.getId());
+        return Result.ok(tickets);
+    }
+
 }

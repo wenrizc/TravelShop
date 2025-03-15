@@ -1,4 +1,4 @@
-package com.hmdp.controller;
+package com.hmdp.controller.user;
 
 
 import com.hmdp.dto.Result;

@@ -1,6 +1,5 @@
 package com.hmdp.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.entity.TicketSku;
 import com.hmdp.mapper.TicketSkuMapper;
@@ -10,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -96,58 +94,4 @@ public class TicketSkuServiceImpl extends ServiceImpl<TicketSkuMapper, TicketSku
         return ticketSku != null && ticketSku.getStock() >= count;
     }
 
-    @Override
-    public TicketSku getDefaultSku(Long ticketId) {
-        if (ticketId == null) {
-            return null;
-        }
-
-        // 获取门票的所有规格
-        List<TicketSku> skuList = queryByTicketId(ticketId);
-        if (skuList == null || skuList.isEmpty()) {
-            return null;
-        }
-
-        // 默认返回第一个规格
-        // 实际项目中可能需要更复杂的逻辑来确定默认规格
-        return skuList.get(0);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public boolean createTicketSku(TicketSku ticketSku) {
-        if (ticketSku == null || ticketSku.getTicketId() == null) {
-            return false;
-        }
-
-        // 设置初始值
-        if (ticketSku.getStockLocked() == null) {
-            ticketSku.setStockLocked(0);
-        }
-        if (ticketSku.getSaleCount() == null) {
-            ticketSku.setSaleCount(0);
-        }
-        if (ticketSku.getStatus() == null) {
-            ticketSku.setStatus(1); // 假设1表示正常状态
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        ticketSku.setCreateTime(now);
-        ticketSku.setUpdateTime(now);
-
-        return save(ticketSku);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public boolean updateTicketSku(TicketSku ticketSku) {
-        if (ticketSku == null || ticketSku.getId() == null) {
-            return false;
-        }
-
-        // 更新时间
-        ticketSku.setUpdateTime(LocalDateTime.now());
-
-        return updateById(ticketSku);
-    }
 }

@@ -1,7 +1,6 @@
-package com.hmdp.controller;
+package com.hmdp.controller.admin;
 
 import com.alibaba.csp.sentinel.node.Node;
-import com.alibaba.csp.sentinel.node.metric.MetricNode;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleManager;
 import com.alibaba.csp.sentinel.slots.clusterbuilder.ClusterBuilderSlot;

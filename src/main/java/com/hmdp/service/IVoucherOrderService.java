@@ -1,15 +1,11 @@
 package com.hmdp.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.hmdp.dto.Result;
 import com.hmdp.entity.VoucherOrder;
-import org.jetbrains.annotations.NotNull;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 public interface IVoucherOrderService extends IService<VoucherOrder> {
-
 
     /**
      * 根据订单项ID查询优惠券订单
@@ -32,5 +28,10 @@ public interface IVoucherOrderService extends IService<VoucherOrder> {
      */
     boolean refundVoucher(Long id);
 
+    /**
+     * 获取用户的优惠券
+     * @param id 用户ID
+     * @return 优惠券列表
+     */
     List<VoucherOrder> getUserVouchers(Long id);
 }

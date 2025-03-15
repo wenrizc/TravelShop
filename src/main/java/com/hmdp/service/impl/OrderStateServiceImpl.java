@@ -57,40 +57,6 @@ public class OrderStateServiceImpl extends ServiceImpl<OrderStatusHistoryMapper,
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public boolean deliverOrder(Long orderId, String operatorId, String logisticsCode) {
-        log.info("订单发货: orderId={}, operatorId={}, logisticsCode={}", orderId, operatorId, logisticsCode);
-
-        // 先更新物流信息
-        Order updateOrder = new Order();
-        updateOrder.setId(orderId);
-        updateOrder.setStatus(OrderStatus.DELIVERED.getCode());
-        // 然后变更状态
-        OrderStateChangeDTO changeDTO = new OrderStateChangeDTO();
-        changeDTO.setOrderId(orderId);
-        changeDTO.setTargetStatus(OrderStatus.DELIVERED.getCode());
-        changeDTO.setOperator(operatorId);
-        changeDTO.setOperatorType(OperatorType.ADMIN);
-        changeDTO.setRemark("物流单号: " + logisticsCode);
-
-        return changeOrderState(changeDTO);
-    }
-
-    @Override
-    public boolean confirmReceive(Long orderId, Long userId) {
-        log.info("确认收货: orderId={}, userId={}", orderId, userId);
-
-        OrderStateChangeDTO changeDTO = new OrderStateChangeDTO();
-        changeDTO.setOrderId(orderId);
-        changeDTO.setTargetStatus(OrderStatus.RECEIVED.getCode());
-        changeDTO.setOperator(userId.toString());
-        changeDTO.setOperatorType(OperatorType.USER);
-        changeDTO.setReason("用户确认收货");
-
-        return changeOrderState(changeDTO);
-    }
-
-    @Override
     public boolean applyRefund(Long orderId, Long userId, String reason) {
         log.info("申请退款: orderId={}, userId={}, reason={}", orderId, userId, reason);
 
@@ -102,15 +68,5 @@ public class OrderStateServiceImpl extends ServiceImpl<OrderStatusHistoryMapper,
         changeDTO.setReason(reason);
 
         return changeOrderState(changeDTO);
-    }
-
-    /**
-     * 获取订单状态历史
-     * @param orderId 订单ID
-     * @return 状态历史记录列表
-     */
-    public List<OrderStatusHistory> getHistoryByOrderId(Long orderId) {
-        // 直接使用Mapper查询历史记录
-        return baseMapper.findByOrderId(orderId);
     }
 }

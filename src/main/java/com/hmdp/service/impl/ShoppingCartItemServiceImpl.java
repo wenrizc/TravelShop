@@ -1,6 +1,7 @@
 package com.hmdp.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.entity.ShoppingCartItem;
@@ -10,6 +11,7 @@ import com.hmdp.service.ShoppingCartItemService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -68,21 +70,6 @@ public class ShoppingCartItemServiceImpl extends ServiceImpl<ShoppingCartItemMap
     }
 
     @Override
-    public boolean addItem(ShoppingCartItem item) {
-        if (item == null) {
-            return false;
-        }
-        // 设置创建和更新时间
-        if (item.getCreatedTime() == null) {
-            item.setCreatedTime(LocalDateTime.now());
-        }
-        if (item.getUpdatedTime() == null) {
-            item.setUpdatedTime(LocalDateTime.now());
-        }
-        return save(item);
-    }
-
-    @Override
     public boolean updateQuantity(Long id, Integer quantity) {
         if (id == null || quantity == null || quantity <= 0) {
             return false;
@@ -94,37 +81,6 @@ public class ShoppingCartItemServiceImpl extends ServiceImpl<ShoppingCartItemMap
         return update(wrapper);
     }
 
-    @Override
-    public boolean updateSelected(Long id, Boolean selected) {
-        if (id == null || selected == null) {
-            return false;
-        }
-        LambdaUpdateWrapper<ShoppingCartItem> wrapper = new LambdaUpdateWrapper<>();
-        wrapper.eq(ShoppingCartItem::getId, id)
-                .set(ShoppingCartItem::getSelected, selected ? 1 : 0)
-                .set(ShoppingCartItem::getUpdatedTime, LocalDateTime.now());
-        return update(wrapper);
-    }
-
-    @Override
-    public boolean updateAllSelected(Long cartId, Boolean selected) {
-        if (cartId == null || (selected != false && selected != true)) {
-            return false;
-        }
-        LambdaUpdateWrapper<ShoppingCartItem> wrapper = new LambdaUpdateWrapper<>();
-        wrapper.eq(ShoppingCartItem::getCartId, cartId)
-                .set(ShoppingCartItem::getSelected, selected)
-                .set(ShoppingCartItem::getUpdatedTime, LocalDateTime.now());
-        return update(wrapper);    }
-
-
-    @Override
-    public boolean removeItem(Long id) {
-        if (id == null) {
-            return false;
-        }
-        return removeById(id);
-    }
 
     @Override
     public boolean removeItems(List<Long> ids) {
@@ -132,53 +88,6 @@ public class ShoppingCartItemServiceImpl extends ServiceImpl<ShoppingCartItemMap
             return false;
         }
         return removeByIds(ids);
-    }
-
-    @Override
-    public boolean clearItems(Long cartId) {
-        if (cartId == null) {
-            return false;
-        }
-        LambdaQueryWrapper<ShoppingCartItem> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ShoppingCartItem::getCartId, cartId);
-        return remove(wrapper);
-    }
-
-    @Override
-    public Map<Long, List<ShoppingCartItem>> groupByShopId(Long cartId) {
-        if (cartId == null) {
-            return new HashMap<>();
-        }
-        
-        // 查询购物车所有项
-        List<ShoppingCartItem> items = listByCartId(cartId);
-        if (items.isEmpty()) {
-            return new HashMap<>();
-        }
-        
-        // 从商品信息中获取店铺ID并分组
-        Map<Long, List<ShoppingCartItem>> result = new HashMap<>();
-        for (ShoppingCartItem item : items) {
-            // 获取商品信息（包含店铺信息）
-            Map<String, Object> productInfo = productService.getProductInfo(item.getProductId(), item.getSkuId());
-            if (productInfo != null && productInfo.containsKey("shopId")) {
-                Long shopId = (Long) productInfo.get("shopId");
-                if (!result.containsKey(shopId)) {
-                    result.put(shopId, new ArrayList<>());
-                }
-                result.get(shopId).add(item);
-            }
-        }
-        
-        return result;
-    }
-
-    @Override
-    public List<ShoppingCartItem> filterByProductType(Long cartId, Integer productType) {
-        if (cartId == null || productType == null) {
-            return new ArrayList<>();
-        }
-        return shoppingCartItemMapper.listByProductType(cartId, productType);
     }
 
     @Override
@@ -217,36 +126,38 @@ public class ShoppingCartItemServiceImpl extends ServiceImpl<ShoppingCartItemMap
     }
 
     @Override
-    public BigDecimal calculateSelectedItemsTotal(Long cartId) {
-        if (cartId == null) {
-            return BigDecimal.ZERO;
-        }
-        
-        List<ShoppingCartItem> selectedItems = listSelectedByCartId(cartId);
-        if (selectedItems.isEmpty()) {
-            return BigDecimal.ZERO;
-        }
-        
-        BigDecimal total = BigDecimal.ZERO;
-        for (ShoppingCartItem item : selectedItems) {
-            if (item.getSubtotal() != null) {
-                total = total.add(item.getSubtotal());
-            } else if (item.getPrice() != null && item.getQuantity() != null) {
-                total = total.add(item.getPrice().multiply(new BigDecimal(item.getQuantity())));
+    public boolean updateSelected(Long cartId, List<Long> itemIds, Boolean selected) {
+        try {
+            // 将布尔类型转换为整数（0-未选中，1-已选中）
+            int selectedValue = selected ? 1 : 0;
+            if (CollectionUtils.isEmpty(itemIds)) {
+                // 如果未指定购物车项，则更新该购物车下的所有项
+                return baseMapper.updateAllSelected(cartId, selectedValue) >= 0;
+            } else {
+                // 如果指定了购物车项ID列表，则只更新这些项
+                // 首先验证这些购物车项是否属于指定的购物车
+                QueryWrapper<ShoppingCartItem> queryWrapper = new QueryWrapper<>();
+                queryWrapper.eq("cart_id", cartId).in("id", itemIds);
+                List<ShoppingCartItem> items = baseMapper.selectList(queryWrapper);
+
+                if (items.size() != itemIds.size()) {
+                    // 有购物车项不属于指定的购物车
+                    log.warn("部分购物车项不属于购物车: cartId={}, itemIds={}", cartId, itemIds);
+                    return false;
+                }
+
+                // 逐个更新选中状态
+                int count = 0;
+                for (Long itemId : itemIds) {
+                    count += baseMapper.updateSelected(itemId, selectedValue);
+                }
+                return count == itemIds.size();
             }
+        } catch (Exception e) {
+            log.error("更新购物车项选中状态失败: cartId={}, itemIds={}, selected={}",
+                    cartId, itemIds, selected, e);
+            return false;
         }
-        
-        return total;
     }
-    
-    @Override
-    public Integer countItems(Long cartId) {
-        if (cartId == null) {
-            return 0;
-        }
-        
-        LambdaQueryWrapper<ShoppingCartItem> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ShoppingCartItem::getCartId, cartId);
-        return Math.toIntExact(count(wrapper));
-    }
+
 }

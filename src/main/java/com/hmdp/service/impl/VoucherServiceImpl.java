@@ -20,12 +20,7 @@ import java.util.concurrent.TimeUnit;
 import static com.hmdp.utils.RedisConstants.SECKILL_STOCK_KEY;
 
 /**
- * <p>
- *  服务实现类
- * </p>
- *
- * @author 虎哥
- * @since 2021-12-22
+ * 服务实现类
  */
 @Service
 public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> implements IVoucherService {
@@ -37,21 +32,9 @@ public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> impl
     @Resource
     private UnifiedCache unifiedCache;
 
-/*    @Override
-    public Result queryVoucherOfShop(Long shopId) {
-        // 查询优惠券信息
-        List<Voucher> vouchers = getBaseMapper().queryVoucherOfShop(shopId);
-        // 返回结果
-        return Result.ok(vouchers);
-    }*/
 
     @Override
     public Result queryVoucherOfShop(Long shopId) {
-        // 定义缓存key
-        String cacheKey = BusinessType.CACHE_VOUCHER_KEY + shopId;
-
-        // 使用UnifiedCache查询，注意这里只能使用List.class
-        // 这可能存在泛型转换问题，需要在UnifiedCache中解决
         List<Voucher> vouchers = unifiedCache.queryWithBloomFilter(
                 "shop",
                 BusinessType.CACHE_SHOP_KEY,
@@ -62,7 +45,6 @@ public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> impl
                 30L,
                 TimeUnit.MINUTES
         );
-
         // 返回结果
         return Result.ok(vouchers);
     }
@@ -70,16 +52,13 @@ public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> impl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void addSeckillVoucher(Voucher voucher) {
-        // 保存优惠券
         save(voucher);
-        // 保存秒杀信息
         SeckillVoucher seckillVoucher = new SeckillVoucher();
         seckillVoucher.setVoucherId(voucher.getId());
         seckillVoucher.setStock(voucher.getStock());
         seckillVoucher.setBeginTime(voucher.getBeginTime());
         seckillVoucher.setEndTime(voucher.getEndTime());
         seckillVoucherService.save(seckillVoucher);
-        //保存秒杀库存的到redis
         stringRedisTemplate.opsForValue().set(SECKILL_STOCK_KEY+voucher.getId(),voucher.getStock().toString());
     }
 }

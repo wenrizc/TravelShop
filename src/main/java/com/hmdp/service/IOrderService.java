@@ -7,8 +7,6 @@ import com.hmdp.dto.OrderQueryDTO;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.Order;
 import com.hmdp.entity.OrderItem;
-import com.hmdp.entity.OrderStatusHistory;
-import org.aspectj.weaver.ast.Or;
 
 import java.util.List;
 
@@ -49,15 +47,7 @@ public interface IOrderService extends IService<Order> {
     Page<Order> queryOrders(OrderQueryDTO queryDTO);
 
     /**
-     * 用户确认收货
-     * @param orderId 订单ID
-     * @param userId 用户ID
-     * @return 是否成功
-     */
-    boolean confirmReceive(Long orderId, Long userId);
-
-    /**
-     * 删除订单（逻辑删除）
+     * 删除订单
      * @param orderId 订单ID
      * @param userId 用户ID
      * @return 是否成功
@@ -71,14 +61,27 @@ public interface IOrderService extends IService<Order> {
      */
     List<OrderItem>  getByOrderId(Long orderId);
 
+    /**
+     * 查询用户订单
+     * @param id 用户ID
+     * @param queryDTO 查询条件
+     * @return 订单列表
+     */
     Object queryUserOrders(Long id, OrderQueryDTO queryDTO);
 
+    /**
+     * 支付订单
+     * @param orderId 订单ID
+     * @param payType 支付类型
+     * @return 支付结果
+     */
     Object payOrder(Long orderId, Integer payType);
 
-    List<OrderStatusHistory> getHistoryByOrderId(Long orderId);
-
-    void save(OrderStatusHistory history);
-
+    /**
+     * 秒杀代金券
+     * @param voucherId 代金券ID
+     * @return 秒杀结果
+     */
     public Result seckillVoucher(long voucherId);
 
 

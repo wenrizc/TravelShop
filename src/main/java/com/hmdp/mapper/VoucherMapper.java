@@ -8,12 +8,7 @@ import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
 /**
- * <p>
- *  Mapper 接口
- * </p>
- *
- * @author 虎哥
- * @since 2021-12-22
+ * 优惠券Mapper接口
  */
 public interface VoucherMapper extends BaseMapper<Voucher> {
 

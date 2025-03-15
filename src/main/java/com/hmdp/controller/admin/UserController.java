@@ -1,4 +1,4 @@
-package com.hmdp.controller;
+package com.hmdp.controller.admin;
 
 
 import cn.hutool.core.bean.BeanUtil;

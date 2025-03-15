@@ -20,7 +20,7 @@ public class OrderStateMachine {
 
 
     private final OrderNotifier orderNotifier;
-    private OrderMapper orderMapper;
+    private final OrderMapper orderMapper;
 
     /**
      * 执行状态转换

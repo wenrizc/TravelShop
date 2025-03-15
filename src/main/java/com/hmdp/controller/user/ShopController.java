@@ -1,4 +1,4 @@
-package com.hmdp.controller;
+package com.hmdp.controller.user;
 
 
 import cn.hutool.core.util.StrUtil;
@@ -6,53 +6,34 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.Shop;
 import com.hmdp.service.IShopService;
+import com.hmdp.service.IShopTypeService;
 import com.hmdp.utils.SystemConstants;
-import org.springframework.web.bind.annotation.*;
-
-import javax.annotation.Resource;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 商铺控制器
  */
 @RestController
-@RequestMapping("/shop")
+@RequestMapping("/shop-type")
+@RequiredArgsConstructor
 public class ShopController {
 
-    @Resource
-    public IShopService shopService;
+    private final IShopTypeService typeService;
+    private final IShopService shopService;
 
     /**
-     * 根据id查询商铺信息
-     * @param id 商铺id
-     * @return 商铺详情数据
+     * 查询商铺类型列表
+     * @return 商铺类型列表
      */
-    @GetMapping("/{id}")
-    public Result queryShopById(@PathVariable("id") Long id) {
-        return shopService.queryById(id);
+    @GetMapping("list")
+    public Result queryTypeList() {
+        return typeService.getTypeList();
     }
 
-    /**
-     * 新增商铺信息
-     * @param shop 商铺数据
-     * @return 商铺id
-     */
-    @PostMapping
-    public Result saveShop(@RequestBody Shop shop) {
-        // 写入数据库
-        shopService.save(shop);
-        return Result.ok();
-    }
-
-    /**
-     * 更新商铺信息
-     * @param shop 商铺数据
-     * @return 无
-     */
-    @PutMapping
-    public Result updateShop(@RequestBody Shop shop) {
-        // 写入数据库
-        return shopService.update(shop);
-    }
 
     /**
      * 根据商铺类型分页查询商铺信息

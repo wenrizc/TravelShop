@@ -10,7 +10,9 @@ import com.hmdp.enums.OrderStatus;
 import com.hmdp.enums.ProductType;
 import com.hmdp.mapper.*;
 import com.hmdp.service.*;
+import com.hmdp.service.strategy.ProductTypeHandler;
 import com.hmdp.utils.UserHolder;
+import
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,8 +42,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private final IVoucherOrderService voucherOrderService;
     private final ISeckillVoucherService seckillVoucherService;
     private final IOrderStateService orderStateService;
-    private final ITicketSkuService ticketSkuService;
-    private final OrderStatusHistoryMapper orderStatusHistoryMapper;
+
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -68,73 +69,28 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         // 3. 计算订单金额
         BigDecimal totalAmount = BigDecimal.ZERO;
         BigDecimal discountAmount = BigDecimal.ZERO;
-        BigDecimal deliveryFee = new BigDecimal("8.00"); // 这里应该根据实际情况计算配送费
 
         // 4. 查询商品信息、计算金额
         List<OrderCreateDTO.OrderItemDTO> itemDTOs = createDTO.getOrderItems();
         List<OrderItem> orderItems = new ArrayList<>(itemDTOs.size());
 
-        // 根据商品类型处理不同的商品
+        // 处理不同的商品类型
         for (OrderCreateDTO.OrderItemDTO itemDTO : itemDTOs) {
             // 创建订单项
             OrderItem item = new OrderItem();
             item.setProductId(itemDTO.getProductId());
             item.setSkuId(itemDTO.getSkuId());
             item.setCount(itemDTO.getCount());
-            item.setProductType(itemDTO.getProductType()); // 设置商品类型
-            ProductType productType = ProductType.getByCode(itemDTO.getProductType());
-            if (productType == null) {
-                throw new RuntimeException("未知商品类型");
-            }
-            // 根据商品类型获取商品信息
-            switch (productType) {
-                case TICKET:
-                    // 处理门票商品
-                    TicketSku ticketSku = ticketSkuService.getById(itemDTO.getSkuId());
-                    if (ticketSku == null) {
-                        throw new RuntimeException("门票规格不存在");
-                    }
+            item.setProductType(itemDTO.getProductType());
 
-                    // 验证库存
-                    if (ticketSku.getStock() < itemDTO.getCount()) {
-                        throw new RuntimeException("门票库存不足");
-                    }
+            // 获取对应的商品类型处理策略
+            ProductTypeHandler handler = productTypeHandlerFactory.getHandler(itemDTO.getProductType());
 
-                    Ticket ticket = ticketService.getById(itemDTO.getProductId());
-                    if (ticket == null) {
-                        throw new RuntimeException("门票不存在");
-                    }
+            // 验证商品有效性
+            handler.validateProduct(itemDTO);
 
-                    // 设置门票商品信息
-                    item.setProductName(ticket.getName());
-                    item.setProductImg(ticket.getImages().split(",")[0]); // 取第一张图片
-                    item.setSkuName(ticketSku.getName());
-                    item.setPrice(ticketSku.getPrice());
-                    break;
-
-                case VOUCHER:
-                    // 处理优惠券商品
-                    Voucher voucher = voucherService.getById(itemDTO.getProductId());
-                    if (voucher == null) {
-                        throw new RuntimeException("优惠券不存在");
-                    }
-
-                    // 验证库存（秒杀券需要验证）
-                    if (voucher.getType() == 2) {
-                        SeckillVoucher seckillVoucher = seckillVoucherService.getById(itemDTO.getProductId());
-                        if (seckillVoucher == null || seckillVoucher.getStock() < itemDTO.getCount()) {
-                            throw new RuntimeException("优惠券库存不足");
-                        }
-                    }
-
-                    // 设置优惠券商品信息
-                    item.setProductName(voucher.getTitle());
-                    item.setSkuName("标准券");
-                    item.setPrice(BigDecimal.valueOf(voucher.getPayValue()));
-                    break;
-                default:
-                    throw new RuntimeException("未知商品类型");
-            }
+            // 设置订单项信息
+            handler.setupOrderItem(item, itemDTO);
 
             // 计算总价
             item.setTotalAmount(item.getPrice().multiply(new BigDecimal(itemDTO.getCount())));
@@ -175,48 +131,20 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             item.setCreateTime(now);
             item.setUpdateTime(now);
         }
+        boolean itemsSaved = orderItemService.saveBatch(orderItems);
+        if (!itemsSaved) {
+            log.error("保存订单项失败");
+            throw new RuntimeException("保存订单项失败");
+        }
 
+        // 9. 执行各商品类型的后续处理
         for (OrderItem item : orderItems) {
-            // 根据商品类型进行后续处理
-            if (item.getProductType() == ProductType.TICKET.getCode()) {
-                // 生成门票使用记录
-                for (int i = 0; i < item.getCount(); i++) {
-                    TicketUsage usage = new TicketUsage();
-                    usage.setOrderId(order.getId());
-                    usage.setOrderItemId(item.getId());
-                    usage.setTicketId(item.getProductId());
-                    usage.setTicketSkuId(item.getSkuId());
-                    usage.setUserId(order.getUserId());
-                    usage.setCode(generateTicketCode()); // 生成唯一核销码
-                    usage.setStatus(1); // 未使用状态
-
-                    // 计算过期时间
-                    Ticket ticket = ticketService.getById(item.getProductId());
-                    if (ticket.getIsTimeLimited() && ticket.getEffectiveDays() != null) {
-                        usage.setExpireTime(LocalDateTime.now().plusDays(ticket.getEffectiveDays()));
-                    }
-
-                    usage.setCreateTime(LocalDateTime.now());
-                    usage.setUpdateTime(LocalDateTime.now());
-                    ticketUsageService.save(usage);
-                }
-            } else if (item.getProductType() == ProductType.VOUCHER.getCode()) {
-                // 处理优惠券核销逻辑
-                // 创建优惠券订单记录
-                VoucherOrder voucherOrder = new VoucherOrder();
-                voucherOrder.setUserId(order.getUserId());
-                voucherOrder.setVoucherId(item.getProductId());
-                voucherOrder.setPayType(order.getPayType());
-                voucherOrder.setStatus(1); // 未使用状态
-                voucherOrder.setCreateTime(LocalDateTime.now());
-                voucherOrder.setUpdateTime(LocalDateTime.now());
-                voucherOrderService.save(voucherOrder);
-            }
+            ProductTypeHandler handler = productTypeHandlerFactory.getHandler(item.getProductType());
+            handler.processAfterOrderCreation(order, item);
         }
 
         return order.getId();
     }
-
     // 生成唯一票码
     private String generateTicketCode() {
         // 生成唯一票码的逻辑，可以使用UUID等
@@ -363,55 +291,6 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         return page;
     }
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public boolean confirmReceive(Long orderId, Long userId) {
-        log.info("确认收货: orderId={}, userId={}", orderId, userId);
-
-        // 1. 查询订单
-        Order order = this.getById(orderId);
-        if (order == null) {
-            log.error("确认收货失败: 订单不存在, orderId={}", orderId);
-            throw new RuntimeException("订单不存在");
-        }
-
-        // 2. 验证订单所有权
-        if (!order.getUserId().equals(userId)) {
-            log.error("确认收货失败: 订单不属于当前用户, orderId={}, userId={}", orderId, userId);
-            throw new RuntimeException("无权操作此订单");
-        }
-
-        // 3. 验证订单状态是否为配送中
-        if (!OrderStatus.DELIVERED.getCode().equals(order.getStatus())) {
-            log.error("确认收货失败: 订单状态错误, orderId={}, status={}", orderId, order.getStatus());
-            throw new RuntimeException("当前订单状态不可确认收货");
-        }
-
-        // 4. 更新订单状态
-        Order updateOrder = new Order();
-        updateOrder.setId(orderId);
-        updateOrder.setStatus(OrderStatus.COMPLETED.getCode());
-        updateOrder.setUpdateTime(LocalDateTime.now());
-        updateOrder.setFinishTime(LocalDateTime.now());
-        boolean updated = this.updateById(updateOrder);
-
-        if (!updated) {
-            log.error("确认收货失败: 更新订单状态失败, orderId={}", orderId);
-            throw new RuntimeException("确认收货失败");
-        }
-
-        // 5. 记录订单状态变更历史
-        OrderStatusHistory history = new OrderStatusHistory();
-        history.setOrderId(orderId);
-        history.setOrderStatus(OrderStatus.COMPLETED.getCode());
-        history.setRemark("用户确认收货");
-        history.setUpdateTime(LocalDateTime.now());
-        this.save(history);
-
-        log.info("确认收货成功: orderId={}", orderId);
-        return true;
-    }
-
-    @Override
     public boolean deleteOrder(Long orderId, Long userId) {
         log.info("删除订单: orderId={}, userId={}", orderId, userId);
 
@@ -555,35 +434,6 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         log.info("支付订单成功: orderId={}", orderId);
         return "支付成功";
     }
-
-    @Override
-    public List<OrderStatusHistory> getHistoryByOrderId(Long orderId) {
-        log.info("查询订单状态历史: orderId={}", orderId);
-        //TODO
-        // 这里应该使用OrderStatusHistoryMapper查询
-        // 简化处理，返回空列表
-        log.warn("getHistoryByOrderId方法需要实现，目前返回空列表");
-        return new ArrayList<>();
-    }
-    @Override
-    public void save(OrderStatusHistory history) {
-        log.info("保存订单状态历史: {}", history);
-    
-        // 设置默认值
-        if (history.getCreateTime() == null) {
-            history.setCreateTime(LocalDateTime.now());
-        }
-        if (history.getUpdateTime() == null) {
-            history.setUpdateTime(LocalDateTime.now());
-        }
-        if (history.getOperateTime() == null) {
-            history.setOperateTime(LocalDateTime.now());
-        }
-        
-        // 保存历史记录
-        orderStatusHistoryMapper.insert(history);
-    }
-
 
     // 获取门票状态描述
     private String getTicketStatusDesc(Integer status) {
