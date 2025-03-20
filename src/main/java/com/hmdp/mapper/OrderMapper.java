@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hmdp.dto.OrderQueryDTO;
 import com.hmdp.dto.OrderStatisticsDTO;
 import com.hmdp.entity.Order;
+import com.hmdp.entity.OrderItem;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -134,5 +135,9 @@ public interface OrderMapper extends BaseMapper<Order> {
             "</if>" +
             "</script>")
     List<Order> queryOrdersByCondition(Page<Order> page, @Param("dto") OrderQueryDTO dto);
+
+
+    @Select("SELECT * FROM tb_order_item WHERE order_no = #{orderNo}")
+    Boolean saveBatch(@Param("orderList") List<OrderItem> orderList);
 
 }

@@ -32,6 +32,10 @@ spring:
         dashboard: localhost:8080
         port: 8719
       eager: true
+  elasticsearch:
+    uris: http://localhost:9200
+    socket-timeout: 5000
+    connection-timeout: 5000
 sentinel:
   flow:
     concurrency-threshold: 2200
@@ -55,3 +59,14 @@ canal:
   destination: hmdp
   username: 
   password:
+xxl:
+  job:
+    admin:
+      addresses: http://127.0.0.1:8080/xxl-job-admin  # 调度中心地址
+    accessToken: default_token  # 鉴权token
+    executor:
+      appname: hmdp-job-executor  # 执行器名称
+      ip:  # 可自动获取
+      port: 9999  # 执行器端口
+      logpath: /logs/xxl-job/jobhandler  # 日志路径
+      logretentiondays: 30  # 日志保留天数

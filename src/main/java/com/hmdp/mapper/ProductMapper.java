@@ -95,4 +95,22 @@ public interface ProductMapper extends BaseMapper<Product> {
      */
     @Update("UPDATE tb_product SET score = #{score}, update_time = NOW() WHERE id = #{id}")
     int updateScore(@Param("id") Long id, @Param("score") Double score);
+
+    /**
+     * 增加商品销量
+     * @param productId 商品ID
+     * @param count 增加数量
+     * @return 影响行数
+     */
+    @Update("UPDATE tb_product SET sales = sales + #{count}, update_time = NOW() WHERE id = #{productId}")
+    Boolean increaseSales(@Param("productId") Long productId, @Param("count") Integer count);
+
+    /**
+     * 减少商品销量
+     * @param productId 商品ID
+     * @param count 减少数量
+     * @return 影响行数
+     */
+    @Update("UPDATE tb_product SET sales = sales - #{count}, update_time = NOW() WHERE id = #{productId} AND sales >= #{count}")
+    Boolean decreaseSales(@Param("productId") Long productId, @Param("count") Integer count);
 }

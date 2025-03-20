@@ -11,8 +11,8 @@ import com.hmdp.enums.ProductType;
 import com.hmdp.mapper.*;
 import com.hmdp.service.*;
 import com.hmdp.service.strategy.ProductTypeHandler;
+import com.hmdp.service.strategy.ProductTypeHandlerFactory;
 import com.hmdp.utils.UserHolder;
-import
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,13 +35,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private final OrderMapper orderMapper;
     private final TicketUsageMapper ticketUsageMapper;
     private final VoucherOrderMapper voucherOrderMapper;
-    private final TicketSkuMapper ticketSkuMapper;
-    private final ITicketService ticketService;
-    private final ITicketUsageService ticketUsageService;
     private final IVoucherService voucherService;
     private final IVoucherOrderService voucherOrderService;
     private final ISeckillVoucherService seckillVoucherService;
     private final IOrderStateService orderStateService;
+    private final ProductTypeHandlerFactory productTypeHandlerFactory;
+    private final PaymentService paymentService;
+
 
 
     @Override
@@ -109,8 +109,6 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         // 6. 设置订单金额
         order.setTotalAmount(totalAmount);
         order.setDiscountAmount(discountAmount);
-        order.setDeliveryFee(deliveryFee);
-        order.setPayAmount(totalAmount.subtract(discountAmount).add(deliveryFee));
 
         // 7. 设置订单时间
         LocalDateTime now = LocalDateTime.now();
@@ -131,7 +129,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             item.setCreateTime(now);
             item.setUpdateTime(now);
         }
-        boolean itemsSaved = orderItemService.saveBatch(orderItems);
+
+        boolean itemsSaved = orderMapper.saveBatch(orderItems);
         if (!itemsSaved) {
             log.error("保存订单项失败");
             throw new RuntimeException("保存订单项失败");
@@ -193,24 +192,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         // 5. 恢复库存
         List<OrderItem> orderItems = orderItemMapper.selectByOrderId(orderId);
         for (OrderItem item : orderItems) {
-            if (item.getProductType() == ProductType.TICKET.getCode()) {
-                // 恢复门票库存
-                ticketSkuMapper.increaseStock(item.getSkuId(), item.getCount());
-                // 更新门票使用记录状态
-                ticketUsageService.markAsRefunded(orderId);
-            } else if (item.getProductType() == ProductType.VOUCHER.getCode()) {
-                // 恢复优惠券库存
-                seckillVoucherService.update()
-                        .setSql("stock = stock + " + item.getCount())
-                        .eq("voucher_id", item.getProductId())
-                        .update();
-
-                // 更新优惠券订单状态
-                VoucherOrder voucherOrder = voucherOrderMapper.getByOrderItemId(item.getId());
-                if (voucherOrder != null) {
-                    voucherOrderService.refundVoucher(voucherOrder.getId());
-                }
-            }
+            ProductTypeHandler handler = productTypeHandlerFactory.getHandler(item.getProductType());
+            handler.processAfterCancellation(order, item);
         }
 
         // 6. 记录订单状态变更历史
@@ -224,6 +207,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         log.info("取消订单成功: orderId={}", orderId);
         return true;
     }
+
     @Override
     public Order getOrderDetail(Long id) {
         log.info("查询订单详情: id={}", id);
@@ -359,80 +343,16 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Object payOrder(Long orderId, Integer payType) {
-        log.info("支付订单: orderId={}, payType={}", orderId, payType);
+        log.info("订单支付请求: orderId={}, payType={}", orderId, payType);
 
-        // 1. 查询订单
-        Order order = this.getById(orderId);
-        if (order == null) {
-            log.error("支付订单失败: 订单不存在, orderId={}", orderId);
-            throw new RuntimeException("订单不存在");
+        // 委托给专门的支付服务处理
+        Result result = paymentService.createPayment(orderId, payType);
+
+        if (result.getSuccess()) {
+            return result.getData();
+        } else {
+            throw new RuntimeException("支付订单失败: " + result.getErrorMsg());
         }
-
-        // 2. 验证订单状态
-        if (!OrderStatus.WAIT_PAY.getCode().equals(order.getStatus())) {
-            log.error("支付订单失败: 订单状态错误, orderId={}, status={}", orderId, order.getStatus());
-            throw new RuntimeException("当前订单状态不可支付");
-        }
-
-        // 3. 更新订单状态
-        Order updateOrder = new Order();
-        updateOrder.setId(orderId);
-        updateOrder.setStatus(OrderStatus.PAID.getCode());
-        updateOrder.setUpdateTime(LocalDateTime.now());
-        updateOrder.setPayTime(LocalDateTime.now());
-        updateOrder.setPayType(payType);
-        boolean updated = this.updateById(updateOrder);
-
-        if (!updated) {
-            log.error("支付订单失败: 更新订单状态失败, orderId={}", orderId);
-            throw new RuntimeException("支付订单失败");
-        }
-
-        // 4. 处理订单项相关业务
-        List<OrderItem> orderItems = this.getByOrderId(orderId);
-        for (OrderItem item : orderItems) {
-            if (item.getProductType() == ProductType.TICKET.getCode()) {
-                // 减少门票库存，增加销量
-                ticketSkuMapper.decreaseStock(item.getSkuId(), item.getCount());
-
-                // 生成门票使用凭证
-                for (int i = 0; i < item.getCount(); i++) {
-                    TicketUsage usage = new TicketUsage();
-                    usage.setOrderId(orderId);
-                    usage.setOrderItemId(item.getId());
-                    usage.setTicketId(item.getProductId());
-                    usage.setTicketSkuId(item.getSkuId());
-                    usage.setUserId(order.getUserId());
-                    usage.setCode(generateTicketCode()); // 生成唯一核销码
-                    usage.setStatus(1); // 未使用状态
-
-                    // 计算过期时间
-                    Ticket ticket = ticketService.getById(item.getProductId());
-                    if (ticket.getIsTimeLimited() && ticket.getEffectiveDays() != null) {
-                        usage.setExpireTime(LocalDateTime.now().plusDays(ticket.getEffectiveDays()));
-                    }
-
-                    usage.setCreateTime(LocalDateTime.now());
-                    usage.setUpdateTime(LocalDateTime.now());
-                    ticketUsageService.save(usage);
-                }
-            } else if (item.getProductType() == ProductType.VOUCHER.getCode()) {
-                // 更新优惠券订单状态
-                voucherOrderMapper.updateStatusToPaid(item.getId(), LocalDateTime.now());
-            }
-        }
-
-
-        // 5. 记录订单状态变更历史
-        OrderStatusHistory history = new OrderStatusHistory();
-        history.setOrderId(orderId);
-        history.setOrderStatus(OrderStatus.WAIT_DELIVER.getCode());
-        history.setRemark("用户完成支付，等待发货");
-        history.setUpdateTime(LocalDateTime.now());
-        orderStateService.save(history);
-
-        log.info("支付订单成功: orderId={}", orderId);
-        return "支付成功";
     }
 
     // 获取门票状态描述

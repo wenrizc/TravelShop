@@ -11,6 +11,7 @@ import com.hmdp.service.IShopService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,6 +26,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
 
     private final ProductSkuMapper productSkuMapper;
     private final IShopService shopService;
+    private final ProductMapper productMapper;
 
     @Override
     public Map<String, Object> getProductInfo(Long productId, Long skuId) {
@@ -44,25 +46,14 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         result.put("imageUrl", product.getCover());
         result.put("onSale", product.getStatus() == 1);
         // 获取SKU信息
-        ProductSku sku;
-        if (skuId != null) {
-            sku = productSkuMapper.selectById(skuId);
-            if (sku == null || !sku.getProductId().equals(productId)) {
-                log.warn("商品规格不存在或不属于该商品: productId={}, skuId={}", productId, skuId);
-                return null;
-            }
-        } else {
-            // 获取默认SKU（如第一个）
-            sku = productSkuMapper.getDefaultSku(productId);
-            if (sku == null) {
-                log.warn("商品没有默认规格: productId={}", productId);
-                return null;
-            }
+        ProductSku sku = productSkuMapper.selectById(skuId);
+        if (sku == null || !sku.getProductId().equals(productId)) {
+            log.warn("商品规格不存在或不属于该商品: productId={}, skuId={}", productId, skuId);
+            return null;
         }
         // 将SKU信息存入结果
         result.put("sku", sku);
         result.put("skuId", sku.getId());
-        result.put("skuName", sku.getName());
         result.put("price", sku.getPrice());
         result.put("stock", sku.getStock() - sku.getStockLocked());
         // 更新onSale标志，同时考虑SKU状态
@@ -78,4 +69,22 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         return result;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean increaseSales(Long productId, Integer count) {
+        log.info("增加商品销量: productId={}, count={}", productId, count);
+        return productMapper.increaseSales(productId, count);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean decreaseSales(Long productId, Integer count) {
+        log.info("减少商品销量: productId={}, count={}", productId, count);
+        return productMapper.decreaseSales(productId, count);
+    }
+
+    @Override
+    public Product getById(Long productId) {
+        return productMapper.selectById(productId);
+    }
 }

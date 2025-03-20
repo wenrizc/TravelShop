@@ -102,4 +102,6 @@ public class Ticket implements Serializable {
      */
     private List<TicketSku> skus;
 
+
+    private Integer Heat;
 }

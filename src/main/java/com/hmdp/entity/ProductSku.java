@@ -1,7 +1,6 @@
 package com.hmdp.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -24,7 +23,7 @@ public class ProductSku implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 主键ID
+     * 规格ID
      */
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
@@ -35,34 +34,14 @@ public class ProductSku implements Serializable {
     private Long productId;
 
     /**
-     * 规格名称
+     * 规格名称/规格值组合
      */
-    private String name;
+    private String specsValues;
 
     /**
-     * 规格值（JSON格式存储，如：{"颜色":"红色","尺寸":"XL"}）
-     */
-    private String specs;
-
-    /**
-     * 规格编码
-     */
-    private String code;
-
-    /**
-     * 规格图片
-     */
-    private String image;
-
-    /**
-     * 销售价格
+     * 价格
      */
     private BigDecimal price;
-
-    /**
-     * 原价
-     */
-    private BigDecimal originalPrice;
 
     /**
      * 库存
@@ -98,5 +77,4 @@ public class ProductSku implements Serializable {
      * 更新时间
      */
     private LocalDateTime updateTime;
-
 }

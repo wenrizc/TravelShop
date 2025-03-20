@@ -66,7 +66,6 @@ public class VoucherProductHandler implements ProductTypeHandler {
         item.setProductName(voucher.getTitle());
         item.setSkuName("标准券");
         item.setPrice(BigDecimal.valueOf(voucher.getPayValue()));
-
     }
 
     @Override

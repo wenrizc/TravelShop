@@ -40,8 +40,6 @@ public class BloomFilter {
     private final Map<String, Boolean> rebuildingStatus = new ConcurrentHashMap<>();
 
 
-    // 定时任务调度器
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     public BloomFilter(StringRedisTemplate stringRedisTemplate, RedissonClient redissonClient,
                        ApplicationContext applicationContext) {
@@ -52,13 +50,8 @@ public class BloomFilter {
 
     @PostConstruct
     public void init() {
-            rebuildAllBloomFilters();
-            log.info("初始化布隆过滤器完成");
-        // 启动定期重建布隆过滤器的任务
-        scheduler.scheduleAtFixedRate(
-                this::rebuildAllBloomFilters,
-                1, 24, TimeUnit.HOURS
-        );
+        rebuildAllBloomFilters();
+        log.info("初始化布隆过滤器完成");
     }
 
     public void addBloomFilter(String businessCode, String key) {
@@ -143,35 +136,44 @@ public class BloomFilter {
         return mightContain(businessType.getCode(), key);
     }
 
-    private void rebuildAllBloomFilters() {
+    public boolean rebuildAllBloomFilters() {
         log.info("开始重建所有布隆过滤器");
+        boolean allSuccess = true;
+
         for (BusinessType businessType : BusinessType.values()) {
             try {
-                rebuildSingleBloomFilter(businessType);
+                boolean success = rebuildSingleBloomFilter(businessType);
+                if (!success) {
+                    allSuccess = false;
+                }
             } catch (Exception e) {
                 log.error("重建布隆过滤器[{}]失败", businessType.getCode(), e);
+                allSuccess = false;
             }
         }
- /*       try {
-            rebuildSingleBloomFilter(BusinessType.VOUCHER);
-        } catch (Exception e) {
-            log.error("重建布隆过滤器[{}]失败", BusinessType.VOUCHER.getCode(), e);
-        }*/
+
         if (!deletedKeys.isEmpty()) {
             log.info("清理已删除的元素");
             deletedKeys.clear();
             setBloomStats("deleted", 0L);
         }
-        log.info("所有布隆过滤器重建完成");
+        log.info("所有布隆过滤器重建完成，结果：{}", allSuccess ? "成功" : "部分失败");
+        return allSuccess;
     }
 
-    private void rebuildSingleBloomFilter(BusinessType businessType) {
+    /**
+     * 重建单个业务类型的布隆过滤器
+     * 修改为公共方法，供XXL-Job调用
+     * @param businessType 业务类型
+     * @return 重建是否成功
+     */
+    public boolean rebuildSingleBloomFilter(BusinessType businessType) {
         String businessCode = businessType.getCode();
 
         // 检查是否已经在重建中
         if (Boolean.TRUE.equals(rebuildingStatus.get(businessCode))) {
             log.info("布隆过滤器[{}]正在重建中，跳过本次重建", businessCode);
-            return;
+            return false;
         }
 
         try {
@@ -187,6 +189,9 @@ public class BloomFilter {
             int expectedInsertions = estimateDataSize(businessType);
             double falseProbability = getBusinessFalseRate(businessCode);
             bloomFilter.tryInit(Math.max(expectedInsertions, 1000), falseProbability);
+
+            // 记录开始时间，用于性能统计
+            long startTime = System.currentTimeMillis();
 
             // 加载业务数据
             Set<String> keys = loadBusinessData(businessType);
@@ -204,9 +209,14 @@ public class BloomFilter {
             // 重置该业务的删除计数
             stringRedisTemplate.opsForValue().set(BLOOM_STATS_PREFIX + businessCode + ":deleted", "0");
 
-            log.info("布隆过滤器[{}]重建完成，共添加{}个元素", businessCode, count);
+            // 记录重建耗时
+            long costTime = System.currentTimeMillis() - startTime;
+            log.info("布隆过滤器[{}]重建完成，共添加{}个元素，耗时{}ms", businessCode, count, costTime);
+
+            return true;
         } catch (Exception e) {
             log.error("重建布隆过滤器[{}]时发生错误", businessCode, e);
+            return false;
         } finally {
             // 无论成功失败，都将重建状态标记为完成
             rebuildingStatus.put(businessCode, false);
@@ -356,4 +366,5 @@ public class BloomFilter {
         health.put("stats", getBloomFilterStats());
         return health;
     }
+
 }

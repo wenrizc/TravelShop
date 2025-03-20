@@ -8,6 +8,7 @@ import com.alibaba.csp.sentinel.slots.system.SystemRuleManager;
 import com.alibaba.csp.sentinel.util.TimeUtil;
 import com.hmdp.dto.Result;
 import com.hmdp.utils.BloomFilter;
+import com.hmdp.utils.ESDataInitializer;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,6 +30,13 @@ public class SystemController {
 
     @Resource
     private BloomFilter bloomFilter;
+    private ESDataInitializer esDataInitializer;
+
+    @GetMapping("/admin/es/init")
+    public Result initESData() {
+        esDataInitializer.initProductData();
+        return Result.ok();
+    }
 
     @GetMapping("/bloom/health")
     public Result checkBloomFilterHealth() {

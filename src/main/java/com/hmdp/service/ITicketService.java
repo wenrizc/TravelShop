@@ -66,4 +66,8 @@ public interface ITicketService extends IService<Ticket> {
      * @return 是否可用
      */
     boolean isTicketAvailable(Long ticketId);
+
+    Ticket queryTicketById(Long id);
+
+    int evaluateTicketHeat(int shardIndex, int shardTotal, int batchSize, String periodType, boolean immediateApply);
 }

@@ -5,7 +5,13 @@ import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.hmdp.entity.Shop;
+import com.hmdp.entity.Ticket;
+import com.hmdp.entity.TicketSku;
 import com.hmdp.enums.BusinessType;
+import com.hmdp.service.ITicketService;
+import com.hmdp.service.ITicketSkuService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cglib.core.internal.Function;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -15,8 +21,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 
 import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -61,6 +66,8 @@ public class UnifiedCache {
         cacheMessageService.subscribeToChanges(this::handleCacheMessage);
     }
 
+
+
     private void handleCacheMessage(Map<String, String> message) {
         String operation = message.get("operation");
         String key = message.get("key");
@@ -76,7 +83,6 @@ public class UnifiedCache {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private <R> R getFromLocalCache(String key, Class<R> type) {
         Object value = localCache.getIfPresent(key);
         if (value != null) {
@@ -142,18 +148,6 @@ public class UnifiedCache {
         stringRedisTemplate.delete(key);
         log.debug("删除缓存，key: {}", key);
         cacheMessageService.publishCacheChange("delete", key);
-    }
-
-    public <R> R getFromCache(String key, Class<R> type) {
-        String json = stringRedisTemplate.opsForValue().get(key);
-        if (json == null) {
-            return null;
-        }
-        // 处理空值缓存情况
-        if (StrUtil.isEmpty(json)) {
-            return null;
-        }
-        return JSONUtil.toBean(json, type);
     }
 
     public <R> R getFromLogicalCache(String key, Class<R> type) {
@@ -234,6 +228,22 @@ public class UnifiedCache {
         } catch (Exception e) {
             log.error("重建缓存异常, key={}", key, e);
         }
+    }
+
+    public <R, ID> R queryWithHeatAware(
+            String business,           // 业务类型编码
+            String keyPrefix,          // 缓存键前缀
+            ID id,                     // 数据ID
+            Class<R> type,             // 返回类型
+            Function<ID, R> dbFallback, // 数据库查询函数
+            boolean isHot             // 是否热点数据
+    ) {
+        String actualKeyPrefix = isHot ? keyPrefix + ":hot:" : keyPrefix;
+        String key = actualKeyPrefix + id;
+        boolean useLogicalExpire = isHot;
+        long timeout = isHot ? 10 : 30;
+        TimeUnit timeUnit = TimeUnit.MINUTES;
+        return queryWithBloomFilter(business, keyPrefix, id, type, dbFallback, useLogicalExpire, timeout, timeUnit);
     }
 
 
@@ -363,6 +373,78 @@ public class UnifiedCache {
         }
     }
 
+    public void delete(String cacheKey) {
+        deleteFromLocalCache(cacheKey);
+        deleteCache(cacheKey);
+    }
+
+    public Set<String> cleanupExpiredLogicKeys(String pattern) {
+        // 获取所有匹配的键
+        Set<String> keys = stringRedisTemplate.keys(pattern);
+        Set<String> expiredKeys = new HashSet<>();
+        if (keys != null && !keys.isEmpty()) {
+            for (String key : keys) {
+                // 从 Redis 中获取缓存值
+                String json = stringRedisTemplate.opsForValue().get(key);
+                if (json != null && !json.trim().isEmpty()) {
+                    try {
+                        // 反序列化成 RedisData 对象
+                        RedisData redisData = JSONUtil.toBean(json, RedisData.class);
+                        if (redisData != null && redisData.getExpireTime().isBefore(LocalDateTime.now())) {
+                            // 已经过期则删除缓存键并记录
+                            stringRedisTemplate.delete(key);
+                            expiredKeys.add(key);
+                        }
+                    } catch (Exception e) {
+                        log.error("解析缓存键 {} 的内容失败", key, e);
+                    }
+                } else {
+                    // 空值或空字符串直接删除
+                    stringRedisTemplate.delete(key);
+                    expiredKeys.add(key);
+                }
+            }
+        }
+        return expiredKeys;
+    }
+
+    /**
+     * 热点数据预热方法
+     * 支持按业务类型预热不同类型的热点数据，并支持分片处理
+     *
+     * @param businessType 业务类型，如"shop","ticket","voucher","blog"等
+     * @param shardIndex 当前分片索引
+     * @param shardTotal 总分片数
+     * @return 预热的数据条数
+     */
+    public int prewarmHotData(String businessType, int shardIndex, int shardTotal) {
+        return 0;
+    }
+
+    /**
+     * 预热热门商铺数据
+     */
+    private int prewarmHotShops(int shardIndex, int shardTotal) {
+        return 0;
+    }
+
+    /**
+     * 预热热门优惠券数据
+     */
+    private int prewarmHotVouchers(int shardIndex, int shardTotal) {
+        // 实际业务中的热门优惠券预热逻辑
+        // ...
+        return 0;
+    }
+
+    /**
+     * 预热热门博客数据
+     */
+    private int prewarmHotBlogs(int shardIndex, int shardTotal) {
+        // 实际业务中的热门博客预热逻辑
+        // ...
+        return 0;
+    }
 }
 
 

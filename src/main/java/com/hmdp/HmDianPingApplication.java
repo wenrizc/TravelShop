@@ -17,7 +17,6 @@ public class HmDianPingApplication {
 
     public static void main(String[] args) {
         ConfigurableApplicationContext applicationContext = SpringApplication.run(HmDianPingApplication.class, args);
-         // 添加关闭钩子，确保资源优雅关闭
          Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
                 System.out.println("应用正在关闭，执行资源清理...");

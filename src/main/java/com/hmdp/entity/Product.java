@@ -11,6 +11,7 @@ import lombok.experimental.Accessors;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 商品实体类
@@ -75,29 +76,9 @@ public class Product implements Serializable {
     private Integer sales;
 
     /**
-     * 商品评分，1-5分
-     */
-    private Double score;
-
-    /**
-     * 商品状态：1-上架，2-下架
+     * 商品状态：0-下架，1-上架
      */
     private Integer status;
-
-    /**
-     * 排序值，值越大排越前
-     */
-    private Integer sort;
-
-    /**
-     * 商品规格项，例如"颜色,尺寸"
-     */
-    private String specs;
-
-    /**
-     * 商品标签，多个标签以,隔开
-     */
-    private String tags;
 
     /**
      * 创建时间
@@ -109,4 +90,9 @@ public class Product implements Serializable {
      */
     private LocalDateTime updateTime;
 
+    /**
+     * 商品规格列表（非数据库字段）
+     */
+    @TableField(exist = false)
+    private List<ProductSku> skus;
 }

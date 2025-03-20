@@ -41,4 +41,11 @@ public interface TicketSkuMapper extends BaseMapper<TicketSku> {
     @Update("UPDATE tb_ticket_sku SET stock = stock - #{count}, stock_locked = stock_locked + #{count} " +
             "WHERE id = #{skuId} AND stock >= #{count}")
     int lockStock(@Param("skuId") Long skuId, @Param("count") Integer count);
+
+    /**
+     * 解锁库存（订单超时未支付时使用）
+     */
+    @Update("UPDATE tb_ticket_sku SET stock = stock + #{count}, stock_locked = stock_locked - #{count} " +
+            "WHERE id = #{skuId}")
+    Integer selectStockById(Long skuId);
 }
